@@ -1,163 +1,121 @@
+// server.js
 import express from "express";
-import axios from "axios";
 import cors from "cors";
-import dns from "dns/promises";
+import axios from "axios";
+import whois from "whois-json";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-function detectCMS(html) {
-  const lower = html.toLowerCase();
-  if (lower.includes("wp-content")) return "WordPress";
-  if (lower.includes("shopify")) return "Shopify";
-  if (lower.includes("wix.com")) return "Wix";
-  if (lower.includes("squarespace")) return "Squarespace";
-  if (lower.includes("joomla")) return "Joomla";
-  return "Unknown";
-}
+// Helper to extract basic info
+function extractInfo(html) {
+  const phoneMatch = html.match(/\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
+  const emailMatch = html.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/);
 
-function detectMobile(html) {
-  return html.includes("viewport");
-}
+  const social = {
+    facebook: html.includes("facebook.com"),
+    instagram: html.includes("instagram.com"),
+    linkedin: html.includes("linkedin.com"),
+  };
 
-function detectEmail(html) {
-  return /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(html);
-}
-
-function detectPhone(html) {
-  return /\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/.test(html);
-}
-
-function classifyBusiness(html) {
-  const lower = html.toLowerCase();
-  if (lower.includes("restaurant")) return "Restaurant";
-  if (lower.includes("law firm")) return "Legal";
-  if (lower.includes("clinic")) return "Healthcare";
-  if (lower.includes("shop") || lower.includes("cart")) return "E-commerce";
-  if (lower.includes("consulting")) return "Consulting";
-  return "General Business";
-}
-
-async function tryFetch(url) {
-  return axios.get(url, {
-    timeout: 10000,
-    maxRedirects: 5,
-    validateStatus: () => true,
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
-    }
-  });
-}
-
-app.post("/analyze", async (req, res) => {
-  const { domain } = req.body;
-
-  const urlsToTry = [
-    `https://${domain}`,
-    `http://${domain}`,
-    `https://www.${domain}`,
-    `http://www.${domain}`
-  ];
-
-  let response = null;
-
-  for (let url of urlsToTry) {
-    try {
-      response = await tryFetch(url);
-      if (response && response.data) break;
-    } catch (e) {
-      continue;
-    }
+  let reason = "";
+  if (html.includes("coming soon") || html.includes("under construction")) {
+    reason = "Coming Soon / Under Construction";
+  } else if (html.includes("redirect")) {
+    reason = "Redirected";
+  } else if (html.replace(/\s/g, "").length < 50) {
+    reason = "No Content / Empty Page";
   }
 
-  if (!response || !response.data) {
-    return res.json({
-      verified: false,
-      domain,
-      error: "Website unreachable or blocked"
-    });
-  }
+  return {
+    phone: phoneMatch ? phoneMatch[0] : "",
+    email: emailMatch ? emailMatch[0] : "",
+    social,
+    reason
+  };
+}
 
-  try {
-    const html = response.data;
-    const headers = response.headers;
-    const ipInfo = await dns.lookup(domain);
-
-    res.json({
-      verified: true,
-      domain,
-      statusCode: response.status,
-      server: headers.server || "Unknown",
-      ip: ipInfo.address,
-      cms: detectCMS(html),
-      mobileResponsive: detectMobile(html),
-      emailFound: detectEmail(html),
-      phoneFound: detectPhone(html),
-      businessType: classifyBusiness(html)
-    });
-
-  } catch (error) {
-    res.json({
-      verified: false,
-      domain,
-      error: "Processing error"
-    });
-  }
-});
+// Bulk analyze route
 app.post("/bulk-analyze", async (req, res) => {
   const { domains } = req.body;
-
   if (!domains || !Array.isArray(domains)) {
     return res.status(400).json({ error: "Domains array required" });
   }
 
   const results = [];
 
-  for (let domain of domains) {
+  for (const domain of domains) {
     try {
-      const response = await axios.get(`https://${domain}`, {
-        timeout: 8000,
-        validateStatus: () => true,
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-        }
-      });
-
       let status = "Active";
       let reason = "";
+      let phone = "";
+      let email = "";
+      let social = { facebook: false, instagram: false, linkedin: false };
+      let statusCode = 0;
+      let domainAge = "Unknown";
 
-      if (response.status >= 400) {
+      try {
+        const response = await axios.get(`https://${domain}`, {
+          timeout: 10000,
+          validateStatus: () => true,
+          headers: { "User-Agent": "Mozilla/5.0" },
+        });
+
+        statusCode = response.status;
+
+        if (response.status >= 400) {
+          status = "Inactive";
+          reason = "Server Error";
+        } else {
+          const html = response.data.toLowerCase();
+          const info = extractInfo(html);
+          phone = info.phone;
+          email = info.email;
+          social = info.social;
+          if (info.reason) reason = info.reason;
+        }
+
+      } catch (err) {
         status = "Inactive";
-        reason = "Server Error";
+        reason = "Unreachable / DNS Error or Blocked";
       }
 
-      const html = response.data.toLowerCase();
-
-      if (html.includes("coming soon") || html.includes("under construction")) {
-        reason = "Coming Soon";
+      // WHOIS lookup for domain age
+      try {
+        const whoisData = await whois(domain);
+        domainAge = whoisData.creationDate || "Unknown";
+      } catch (err) {
+        domainAge = "Unknown";
       }
 
       results.push({
         domain,
         status,
-        statusCode: response.status,
-        reason
+        statusCode,
+        reason,
+        phone,
+        email,
+        social,
+        domainAge
       });
 
-    } catch (error) {
+    } catch (err) {
       results.push({
         domain,
-        status: "Inactive",
-        reason: "Unreachable or DNS error"
+        status: "Unverified",
+        reason: "Manual check required",
+        phone: "",
+        email: "",
+        social: { facebook: false, instagram: false, linkedin: false },
+        domainAge: "Unknown"
       });
     }
   }
 
-  res.json(results);
+  return res.json(results);
 });
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("Server running on port " + PORT);
