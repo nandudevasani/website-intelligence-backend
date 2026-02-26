@@ -2,13 +2,12 @@
 import express from "express";
 import cors from "cors";
 import axios from "axios";
-import whois from "whois-json";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Helper function to extract info from HTML
+// Extract info from HTML
 function extractInfo(html) {
   const phoneMatch = html.match(/\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
   const emailMatch = html.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/);
@@ -54,7 +53,6 @@ app.post("/bulk-analyze", async (req, res) => {
       let email = "";
       let social = { facebook: false, instagram: false, linkedin: false };
       let statusCode = 0;
-      let domainAge = "Unknown";
 
       try {
         const response = await axios.get(`https://${domain}`, {
@@ -76,18 +74,9 @@ app.post("/bulk-analyze", async (req, res) => {
           social = info.social;
           if (info.reason) reason = info.reason;
         }
-
       } catch (err) {
         status = "Inactive";
         reason = "Unreachable / DNS Error or Blocked";
-      }
-
-      // WHOIS lookup for domain age
-      try {
-        const whoisData = await whois(domain);
-        domainAge = whoisData.creationDate || "Unknown";
-      } catch (err) {
-        domainAge = "Unknown";
       }
 
       results.push({
@@ -97,10 +86,8 @@ app.post("/bulk-analyze", async (req, res) => {
         reason,
         phone,
         email,
-        social,
-        domainAge
+        social
       });
-
     } catch (err) {
       results.push({
         domain,
@@ -108,13 +95,12 @@ app.post("/bulk-analyze", async (req, res) => {
         reason: "Manual check required",
         phone: "",
         email: "",
-        social: { facebook: false, instagram: false, linkedin: false },
-        domainAge: "Unknown"
+        social: { facebook: false, instagram: false, linkedin: false }
       });
     }
   }
 
-  return res.json(results);
+  res.json(results);
 });
 
 const PORT = process.env.PORT || 3000;
