@@ -106,7 +106,58 @@ app.post("/analyze", async (req, res) => {
     });
   }
 });
+app.post("/bulk-analyze", async (req, res) => {
+  const { domains } = req.body;
 
+  if (!domains || !Array.isArray(domains)) {
+    return res.status(400).json({ error: "Domains array required" });
+  }
+
+  const results = [];
+
+  for (let domain of domains) {
+    try {
+      const response = await axios.get(`https://${domain}`, {
+        timeout: 8000,
+        validateStatus: () => true,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        }
+      });
+
+      let status = "Active";
+      let reason = "";
+
+      if (response.status >= 400) {
+        status = "Inactive";
+        reason = "Server Error";
+      }
+
+      const html = response.data.toLowerCase();
+
+      if (html.includes("coming soon") || html.includes("under construction")) {
+        reason = "Coming Soon";
+      }
+
+      results.push({
+        domain,
+        status,
+        statusCode: response.status,
+        reason
+      });
+
+    } catch (error) {
+      results.push({
+        domain,
+        status: "Inactive",
+        reason: "Unreachable or DNS error"
+      });
+    }
+  }
+
+  res.json(results);
+});
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("Server running on port " + PORT);
