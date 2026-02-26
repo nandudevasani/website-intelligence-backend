@@ -1,7 +1,7 @@
 {
   "name": "website-intelligence-backend",
   "version": "1.0.0",
-  "description": "Bulk website intelligence scanner with business info and social links",
+  "description": "Bulk website intelligence scanner",
   "type": "module",
   "main": "server.js",
   "scripts": {
