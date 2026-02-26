@@ -39,15 +39,48 @@ function classifyBusiness(html) {
   return "General Business";
 }
 
+async function tryFetch(url) {
+  return axios.get(url, {
+    timeout: 10000,
+    maxRedirects: 5,
+    validateStatus: () => true,
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
+    }
+  });
+}
+
 app.post("/analyze", async (req, res) => {
   const { domain } = req.body;
 
-  try {
-    const response = await axios.get(`https://${domain}`, {
-      timeout: 10000,
-      validateStatus: () => true
-    });
+  const urlsToTry = [
+    `https://${domain}`,
+    `http://${domain}`,
+    `https://www.${domain}`,
+    `http://www.${domain}`
+  ];
 
+  let response = null;
+
+  for (let url of urlsToTry) {
+    try {
+      response = await tryFetch(url);
+      if (response && response.data) break;
+    } catch (e) {
+      continue;
+    }
+  }
+
+  if (!response || !response.data) {
+    return res.json({
+      verified: false,
+      domain,
+      error: "Website unreachable or blocked"
+    });
+  }
+
+  try {
     const html = response.data;
     const headers = response.headers;
     const ipInfo = await dns.lookup(domain);
@@ -69,7 +102,7 @@ app.post("/analyze", async (req, res) => {
     res.json({
       verified: false,
       domain,
-      error: "Website unreachable or blocked"
+      error: "Processing error"
     });
   }
 });
