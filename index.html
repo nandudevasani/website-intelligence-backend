@@ -335,7 +335,7 @@
 <script>
   // ====== CONFIGURATION ======
   const API_URL = "https://website-intelligence-backend-1.onrender.com";
-  const BATCH_SIZE = 5; // Domains per batch — keep small to avoid Render 30s timeout
+  const BATCH_SIZE = 1; // One domain per request — guarantees no Render timeout
   const MAX_DOMAINS = 50;
 
   let scanning = false;
@@ -444,100 +444,66 @@
       setStatus("⏳ Server is up! Starting scan...", "");
       progressFill.style.width = "10%";
 
-      // Split domains into batches of BATCH_SIZE
-      const batches = [];
-      for (let i = 0; i < domains.length; i += BATCH_SIZE) {
-        batches.push(domains.slice(i, i + BATCH_SIZE));
-      }
-
+      // Scan domains 3 at a time, one domain per request
+      const PARALLEL = 3;
       let completed = 0;
       let totalActive = 0;
       let rowIndex = 0;
 
-      for (let i = 0; i < batches.length; i++) {
-        if (!scanning) break; // Stop button pressed
+      for (let i = 0; i < domains.length; i += PARALLEL) {
+        if (!scanning) break;
 
-        const batch = batches[i];
-        setStatus(`⏳ Scanning batch ${i + 1}/${batches.length} (${completed}/${domains.length} done)...`, "");
+        const chunk = domains.slice(i, i + PARALLEL);
+        setStatus(`⏳ Scanning ${completed + 1}-${Math.min(completed + chunk.length, domains.length)} of ${domains.length}...`, "");
+
+        // Fire all requests in this chunk simultaneously
+        const promises = chunk.map(async (domain) => {
+          try {
+            const res = await fetch(API_URL + "/batch-scan", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ domains: [domain] }),
+              signal: abortController.signal
+            });
+
+            const text = await res.text();
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+            let data;
+            try { data = JSON.parse(text); } catch { throw new Error("Bad response"); }
+
+            if (Array.isArray(data) && data.length > 0) {
+              return data[0];
+            }
+            throw new Error("Empty response");
+          } catch (err) {
+            if (err.name === "AbortError") throw err;
+            return {
+              domain,
+              status: "Inactive",
+              statusCode: 0,
+              reason: `Error: ${err.message}`,
+              name: "", phone: "", email: "", street: "", city: "", state: "", zip: "",
+              social: { facebook: "", instagram: "", linkedin: "", gmb: "" }
+            };
+          }
+        });
 
         try {
-          const res = await fetch(API_URL + "/batch-scan", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ domains: batch }),
-            signal: abortController.signal
-          });
-
-          // Safe response parsing — handle empty/truncated responses
-          const text = await res.text();
-
-          if (!res.ok) {
-            throw new Error(`Server error ${res.status}: ${text.slice(0, 200)}`);
-          }
-
-          let data;
-          try {
-            data = JSON.parse(text);
-          } catch (parseErr) {
-            throw new Error("Server returned incomplete response (Render timeout). Try fewer domains.");
-          }
-
-          if (!Array.isArray(data)) {
-            throw new Error("Unexpected response format");
-          }
-
-          // Add results to table progressively
-          data.forEach(d => {
+          const results = await Promise.all(promises);
+          results.forEach(d => {
             rowIndex++;
             addRowToTable(d, rowIndex);
             if (d.status === "Active") totalActive++;
           });
-
-          completed += batch.length;
-          const pct = 10 + (completed / domains.length) * 85;
-          progressFill.style.width = pct + "%";
-
         } catch (err) {
           if (err.name === "AbortError") break;
-
-          // If a batch fails, scan domains one-by-one as fallback
-          console.warn(`Batch ${i+1} failed: ${err.message}. Trying one-by-one...`);
-          setStatus(`⚠️ Batch ${i+1} failed, retrying individually...`, "error");
-
-          for (const domain of batch) {
-            if (!scanning) break;
-            try {
-              const res2 = await fetch(API_URL + "/batch-scan", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ domains: [domain] }),
-                signal: abortController.signal
-              });
-              const text2 = await res2.text();
-              let data2;
-              try { data2 = JSON.parse(text2); } catch { data2 = null; }
-
-              if (Array.isArray(data2) && data2.length > 0) {
-                rowIndex++;
-                addRowToTable(data2[0], rowIndex);
-                if (data2[0].status === "Active") totalActive++;
-              } else {
-                throw new Error("Empty response");
-              }
-            } catch {
-              rowIndex++;
-              addRowToTable({
-                domain,
-                status: "Inactive",
-                statusCode: 0,
-                reason: "Server timeout — try again later",
-                name: "", phone: "", email: "", street: "", city: "", state: "", zip: "",
-                social: { facebook: "", instagram: "", linkedin: "", gmb: "" }
-              }, rowIndex);
-            }
-          }
-          completed += batch.length;
         }
+
+        completed += chunk.length;
+        const pct = 10 + (completed / domains.length) * 85;
+        progressFill.style.width = pct + "%";
+      }
       }
 
       progressFill.style.width = "100%";
