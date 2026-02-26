@@ -1,98 +1,98 @@
 // server.js
 import express from "express";
-import cors from "cors";
 import axios from "axios";
+import cors from "cors";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Extract info from HTML
-function extractInfo(html) {
-  const phoneMatch = html.match(/\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
-  const emailMatch = html.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/);
-
-  const social = {
-    facebook: html.includes("facebook.com"),
-    instagram: html.includes("instagram.com"),
-    linkedin: html.includes("linkedin.com"),
-  };
-
-  let reason = "";
-  if (html.includes("coming soon") || html.includes("under construction")) {
-    reason = "Coming Soon / Under Construction";
-  } else if (html.includes("redirect")) {
-    reason = "Redirected";
-  } else if (html.replace(/\s/g, "").length < 50) {
-    reason = "No Content / Empty Page";
-  }
-
-  return {
-    phone: phoneMatch ? phoneMatch[0] : "",
-    email: emailMatch ? emailMatch[0] : "",
-    social,
-    reason
-  };
+// Extract social links
+function extractSocialLinks(html) {
+  const socials = { facebook: false, instagram: false, linkedin: false };
+  if (html.includes("facebook.com")) socials.facebook = true;
+  if (html.includes("instagram.com")) socials.instagram = true;
+  if (html.includes("linkedin.com")) socials.linkedin = true;
+  return socials;
 }
 
-// Bulk analyze route
+// Check content type
+function checkContent(html) {
+  const lowered = html.toLowerCase();
+  if (lowered.includes("coming soon") || lowered.includes("under construction"))
+    return "Coming Soon";
+  if (lowered.trim() === "") return "Blank / No Content";
+  return "";
+}
+
+// Extract business info
+function extractBusinessInfo(html) {
+  const info = { name: "", street: "", city: "", state: "", zip: "", phone: "", email: "" };
+
+  // Name from title tag
+  const titleMatch = html.match(/<title>(.*?)<\/title>/i);
+  if (titleMatch) info.name = titleMatch[1].trim();
+
+  // Email
+  const emailMatch = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}/gi);
+  if (emailMatch) info.email = emailMatch[0];
+
+  // Phone number (US format)
+  const phoneMatch = html.match(/(\+?1[-.\s]?)?(\(\d{3}\)|\d{3})[-.\s]?\d{3}[-.\s]?\d{4}/);
+  if (phoneMatch) info.phone = phoneMatch[0];
+
+  // Address (simple regex for street, city, state, zip)
+  const addrMatch = html.match(/(\d{1,5}\s\w.+?),\s*([A-Za-z\s]+),\s*([A-Z]{2})\s*(\d{5})/);
+  if (addrMatch) {
+    info.street = addrMatch[1];
+    info.city = addrMatch[2];
+    info.state = addrMatch[3];
+    info.zip = addrMatch[4];
+  }
+
+  return info;
+}
+
 app.post("/bulk-analyze", async (req, res) => {
   const { domains } = req.body;
-
-  if (!domains || !Array.isArray(domains)) {
+  if (!domains || !Array.isArray(domains))
     return res.status(400).json({ error: "Domains array required" });
-  }
 
   const results = [];
 
-  for (const domain of domains) {
+  for (let domain of domains) {
     try {
-      let status = "Active";
-      let reason = "";
-      let phone = "";
-      let email = "";
-      let social = { facebook: false, instagram: false, linkedin: false };
-      let statusCode = 0;
-
-      try {
-        const response = await axios.get(`https://${domain}`, {
-          timeout: 10000,
-          validateStatus: () => true,
-          headers: { "User-Agent": "Mozilla/5.0" },
-        });
-
-        statusCode = response.status;
-
-        if (response.status >= 400) {
-          status = "Inactive";
-          reason = "Server Error";
-        } else {
-          const html = response.data.toLowerCase();
-          const info = extractInfo(html);
-          phone = info.phone;
-          email = info.email;
-          social = info.social;
-          if (info.reason) reason = info.reason;
-        }
-      } catch (err) {
-        status = "Inactive";
-        reason = "Unreachable / DNS Error or Blocked";
-      }
-
-      results.push({
-        domain,
-        status,
-        statusCode,
-        reason,
-        phone,
-        email,
-        social
+      const response = await axios.get(`https://${domain}`, {
+        timeout: 8000,
+        validateStatus: () => true,
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
       });
-    } catch (err) {
+
+      const html = response.data || "";
+      const contentReason = checkContent(html);
+      const socials = extractSocialLinks(html);
+      const business = extractBusinessInfo(html);
+
       results.push({
         domain,
-        status: "Unverified",
-        reason: "Manual check required",
+        status: response.status >= 200 && response.status < 400 ? "Active" : "Inactive",
+        statusCode: response.status,
+        reason: contentReason,
+        ...business,
+        social: socials
+      });
+
+    } catch (error) {
+      results.push({
+        domain,
+        status: "Inactive",
+        statusCode: 0,
+        reason: "Unreachable / DNS Error or Blocked",
+        name: "",
+        street: "",
+        city: "",
+        state: "",
+        zip: "",
         phone: "",
         email: "",
         social: { facebook: false, instagram: false, linkedin: false }
@@ -104,6 +104,4 @@ app.post("/bulk-analyze", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
-});
+app.listen(PORT, () => console.log("Server running on port " + PORT));
