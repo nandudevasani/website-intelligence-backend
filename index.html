@@ -34,7 +34,27 @@
 </table>
 
 <script>
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Bulk Website Scanner</title>
+</head>
+<body>
+
+<h2>Bulk Website Scanner</h2>
+
+<textarea id="domains" rows="10" cols="40"
+placeholder="Enter one domain per line"></textarea>
+
+<br><br>
+
+<button onclick="scanBulk()">Scan Websites</button>
+
+<div id="results"></div>
+
+<script>
 async function scanBulk() {
+
   const input = document.getElementById("domains").value;
 
   if (!input.trim()) {
@@ -48,16 +68,14 @@ async function scanBulk() {
     .filter(d => d);
 
   const resultsDiv = document.getElementById("results");
-  resultsDiv.innerHTML = "Scanning... Please wait...";
+  resultsDiv.innerHTML = "Scanning...";
 
   try {
     const response = await fetch(
       "https://website-intelligence-backend-2.onrender.com/bulk-analyze",
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domains })
       }
     );
@@ -67,14 +85,7 @@ async function scanBulk() {
       return;
     }
 
-    const text = await response.text();
-
-    if (!text) {
-      resultsDiv.innerHTML = "Empty response from server.";
-      return;
-    }
-
-    const data = JSON.parse(text);
+    const data = await response.json();
 
     let html = "<h3>Results:</h3><ul>";
 
@@ -83,7 +94,7 @@ async function scanBulk() {
         <li>
           <strong>${item.domain}</strong> -
           ${item.status}
-          ${item.reason ? " (" + item.reason + ")" : ""}
+          ${item.reason ? "(" + item.reason + ")" : ""}
         </li>
       `;
     });
@@ -96,3 +107,7 @@ async function scanBulk() {
     resultsDiv.innerHTML = "Error: " + error.message;
   }
 }
+</script>
+
+</body>
+</html>
