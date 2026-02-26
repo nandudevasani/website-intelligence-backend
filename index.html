@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <title>Website Intelligence Scanner</title>
 <style>
-body { font-family: Arial; max-width: 1000px; margin: auto; padding: 20px; }
-textarea { width: 100%; height: 100px; }
+body { font-family: Arial; max-width: 1200px; margin: auto; padding: 20px; }
+textarea { width: 100%; height: 100px; margin-bottom: 10px; }
 table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-th, td { border: 1px solid #ccc; padding: 5px; text-align: left; font-size: 12px; }
+th, td { border: 1px solid #ccc; padding: 6px; font-size: 12px; text-align: left; }
 th { background: #f0f0f0; }
 button { padding: 6px 12px; margin-top: 10px; cursor: pointer; }
 </style>
@@ -45,8 +45,9 @@ button { padding: 6px 12px; margin-top: 10px; cursor: pointer; }
 
 <script>
 async function scanBulk() {
-  const domains = document.getElementById("domains").value.split("\n").map(d => d.trim()).filter(d => d);
-  if(domains.length === 0) return alert("Enter at least one domain");
+  const domains = document.getElementById("domains").value
+                  .split("\n").map(d=>d.trim()).filter(d=>d);
+  if(!domains.length) return alert("Enter at least one domain");
 
   const tbody = document.querySelector("#results tbody");
   tbody.innerHTML = "<tr><td colspan='14'>Scanning...</td></tr>";
@@ -79,14 +80,16 @@ async function scanBulk() {
       `;
       tbody.appendChild(row);
     });
-  } catch(e) {
+  } catch {
     tbody.innerHTML = "<tr><td colspan='14'>Error fetching data</td></tr>";
   }
 }
 
 function exportCSV() {
   const rows = Array.from(document.querySelectorAll("#results tr"));
-  const csv = rows.map(r => Array.from(r.cells).map(c => `"${c.innerText.replace(/"/g,'""')}"`).join(",")).join("\n");
+  const csv = rows.map(r => Array.from(r.cells)
+    .map(c => `"${c.innerText.replace(/"/g,'""')}"`).join(","))
+    .join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
