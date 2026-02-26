@@ -7,21 +7,22 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Extract social links
+// Extract social links + Google Business Profile
 function extractSocialLinks(html) {
-  const socials = { facebook: false, instagram: false, linkedin: false };
+  const socials = { facebook: false, instagram: false, linkedin: false, gmb: false };
   if (html.includes("facebook.com")) socials.facebook = true;
   if (html.includes("instagram.com")) socials.instagram = true;
   if (html.includes("linkedin.com")) socials.linkedin = true;
+  if (html.includes("google.com/maps")) socials.gmb = true; // GMB detection
   return socials;
 }
 
 // Check content type
 function checkContent(html) {
   const lowered = html.toLowerCase();
-  if (lowered.includes("coming soon") || lowered.includes("under construction"))
-    return "Coming Soon";
+  if (lowered.includes("coming soon") || lowered.includes("under construction")) return "Coming Soon";
   if (lowered.trim() === "") return "Blank / No Content";
+  if (lowered.includes("redirect")) return "Redirected";
   return "";
 }
 
@@ -29,7 +30,7 @@ function checkContent(html) {
 function extractBusinessInfo(html) {
   const info = { name: "", street: "", city: "", state: "", zip: "", phone: "", email: "" };
 
-  // Name from title tag
+  // Name from title
   const titleMatch = html.match(/<title>(.*?)<\/title>/i);
   if (titleMatch) info.name = titleMatch[1].trim();
 
@@ -37,12 +38,12 @@ function extractBusinessInfo(html) {
   const emailMatch = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}/gi);
   if (emailMatch) info.email = emailMatch[0];
 
-  // Phone number (US format)
+  // Phone (US)
   const phoneMatch = html.match(/(\+?1[-.\s]?)?(\(\d{3}\)|\d{3})[-.\s]?\d{3}[-.\s]?\d{4}/);
   if (phoneMatch) info.phone = phoneMatch[0];
 
-  // Address (simple regex for street, city, state, zip)
-  const addrMatch = html.match(/(\d{1,5}\s\w.+?),\s*([A-Za-z\s]+),\s*([A-Z]{2})\s*(\d{5})/);
+  // Address: street, city, state, zip (simple regex)
+  const addrMatch = html.match(/(\d{1,5}\s[\w\s.]+),\s*([\w\s]+),\s*([A-Z]{2})\s*(\d{5})/);
   if (addrMatch) {
     info.street = addrMatch[1];
     info.city = addrMatch[2];
@@ -69,7 +70,7 @@ app.post("/bulk-analyze", async (req, res) => {
       });
 
       const html = response.data || "";
-      const contentReason = checkContent(html);
+      const reason = checkContent(html);
       const socials = extractSocialLinks(html);
       const business = extractBusinessInfo(html);
 
@@ -77,7 +78,7 @@ app.post("/bulk-analyze", async (req, res) => {
         domain,
         status: response.status >= 200 && response.status < 400 ? "Active" : "Inactive",
         statusCode: response.status,
-        reason: contentReason,
+        reason,
         ...business,
         social: socials
       });
@@ -95,7 +96,7 @@ app.post("/bulk-analyze", async (req, res) => {
         zip: "",
         phone: "",
         email: "",
-        social: { facebook: false, instagram: false, linkedin: false }
+        social: { facebook: false, instagram: false, linkedin: false, gmb: false }
       });
     }
   }
