@@ -8,7 +8,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Helper to extract basic info
+// Helper function to extract info from HTML
 function extractInfo(html) {
   const phoneMatch = html.match(/\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
   const emailMatch = html.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/);
@@ -39,6 +39,7 @@ function extractInfo(html) {
 // Bulk analyze route
 app.post("/bulk-analyze", async (req, res) => {
   const { domains } = req.body;
+
   if (!domains || !Array.isArray(domains)) {
     return res.status(400).json({ error: "Domains array required" });
   }
