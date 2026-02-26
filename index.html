@@ -2,111 +2,136 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Website Intelligence Bulk Scanner</title>
+<title>Bulk Website Intelligence</title>
 <style>
-body { font-family: sans-serif; max-width: 1100px; margin: 20px auto; }
-textarea { width: 100%; height: 120px; padding: 6px; font-size: 13px; }
-button { padding: 6px 12px; margin: 6px 0; cursor: pointer; font-size: 13px; }
-table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 12px; }
-th, td { border: 1px solid #ccc; padding: 6px; text-align: left; vertical-align: top; }
-th { background: #f0f0f0; }
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  h2 { color: #1e40af; }
+  textarea { width: 100%; height: 100px; padding: 10px; font-size: 14px; }
+  button { padding: 8px 16px; margin-top: 10px; background: #2563eb; color: #fff; border: none; cursor: pointer; border-radius: 4px; }
+  button:disabled { background: #94a3b8; cursor: not-allowed; }
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+  th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: center; font-size: 13px; }
+  th { background: #f0f9ff; color: #1e40af; }
+  td { background: #f8fafc; }
 </style>
 </head>
 <body>
 
-<h2>Website Intelligence Bulk Scanner</h2>
+<h2>Bulk Website Intelligence</h2>
 
-<p>Enter domains (one per line):</p>
-<textarea id="domains" placeholder="example.com&#10;google.com"></textarea>
+<label>Enter domains (one per line):</label>
+<textarea id="domainsInput" placeholder="example.com&#10;google.com&#10;padilladesigns.com"></textarea>
+
 <br>
-<button onclick="scanBulk()">Scan Websites</button>
-<button onclick="exportCSV()">Export CSV</button>
+<button id="scanBtn">Scan Websites</button>
+<button id="exportBtn" disabled>Export CSV</button>
 
-<table id="resultsTable">
-<thead>
-<tr>
-<th>Domain</th>
-<th>Status</th>
-<th>Status Code</th>
-<th>Reason</th>
-<th>Business Name</th>
-<th>Street</th>
-<th>City</th>
-<th>State</th>
-<th>ZIP</th>
-<th>Phone</th>
-<th>Email</th>
-<th>Facebook</th>
-<th>GMB</th>
-<th>LinkedIn</th>
-<th>Instagram</th>
-</tr>
-</thead>
-<tbody></tbody>
+<table id="resultsTable" style="display:none;">
+  <thead>
+    <tr>
+      <th>Domain</th>
+      <th>Status</th>
+      <th>Status Code</th>
+      <th>Reason</th>
+      <th>Business Name</th>
+      <th>Street</th>
+      <th>City</th>
+      <th>State</th>
+      <th>ZIP</th>
+      <th>Phone</th>
+      <th>Email</th>
+      <th>Facebook</th>
+      <th>GMB</th>
+      <th>LinkedIn</th>
+      <th>Instagram</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
 </table>
 
 <script>
+const scanBtn = document.getElementById("scanBtn");
+const exportBtn = document.getElementById("exportBtn");
+const resultsTable = document.getElementById("resultsTable").querySelector("tbody");
+const tableContainer = document.getElementById("resultsTable");
+
+// Change this to your backend URL
 const backendURL = "https://website-intelligence-backend-2.onrender.com/bulk-analyze";
 
-async function scanBulk() {
-  const domains = document.getElementById("domains").value
-    .split("\n").map(d => d.trim()).filter(Boolean);
+scanBtn.addEventListener("click", async () => {
+  const raw = document.getElementById("domainsInput").value;
+  const domains = raw.split("\n").map(d => d.trim()).filter(d => d);
+  if(domains.length === 0) return alert("Enter at least one domain.");
 
-  if (domains.length === 0) return alert("Enter at least one domain");
-
-  const tbody = document.querySelector("#resultsTable tbody");
-  tbody.innerHTML = "<tr><td colspan='15'>Scanning...</td></tr>";
+  scanBtn.disabled = true;
+  scanBtn.textContent = "Scanning...";
 
   try {
-    const res = await fetch(backendURL, {
+    const response = await fetch(backendURL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ domains })
     });
-    const data = await res.json();
 
-    tbody.innerHTML = "";
-    data.forEach(r => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${r.domain}</td>
-        <td>${r.status}</td>
-        <td>${r.statusCode}</td>
-        <td>${r.reason || ""}</td>
-        <td>${r.name || ""}</td>
-        <td>${r.street || ""}</td>
-        <td>${r.city || ""}</td>
-        <td>${r.state || ""}</td>
-        <td>${r.zip || ""}</td>
-        <td>${r.phone || ""}</td>
-        <td>${r.email || ""}</td>
-        <td>${r.social.facebook ? "✓" : ""}</td>
-        <td>${r.social.gmb ? "✓" : ""}</td>
-        <td>${r.social.linkedin ? "✓" : ""}</td>
-        <td>${r.social.instagram ? "✓" : ""}</td>
-      `;
-      tbody.appendChild(tr);
-    });
+    if(!response.ok) throw new Error("Backend error");
 
-  } catch (err) {
-    tbody.innerHTML = "<tr><td colspan='15'>Error fetching data</td></tr>";
-    console.error(err);
+    const data = await response.json();
+    renderTable(data);
+
+    exportBtn.disabled = false;
+
+  } catch(e) {
+    alert("Error fetching data. Check backend is running.");
+    console.error(e);
+  } finally {
+    scanBtn.disabled = false;
+    scanBtn.textContent = "Scan Websites";
   }
+});
+
+function renderTable(data) {
+  resultsTable.innerHTML = "";
+  data.forEach(r => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.domain}</td>
+      <td>${r.status}</td>
+      <td>${r.statusCode || ""}</td>
+      <td>${r.reason || ""}</td>
+      <td>${r.name || ""}</td>
+      <td>${r.street || ""}</td>
+      <td>${r.city || ""}</td>
+      <td>${r.state || ""}</td>
+      <td>${r.zip || ""}</td>
+      <td>${r.phone || ""}</td>
+      <td>${r.email || ""}</td>
+      <td>${r.social.facebook ? "✓" : ""}</td>
+      <td>${r.social.gmb ? "✓" : ""}</td>
+      <td>${r.social.linkedin ? "✓" : ""}</td>
+      <td>${r.social.instagram ? "✓" : ""}</td>
+    `;
+    resultsTable.appendChild(tr);
+  });
+  document.getElementById("resultsTable").style.display = "table";
 }
 
-function exportCSV() {
+exportBtn.addEventListener("click", () => {
   const rows = [["Domain","Status","Status Code","Reason","Business Name","Street","City","State","ZIP","Phone","Email","Facebook","GMB","LinkedIn","Instagram"]];
   document.querySelectorAll("#resultsTable tbody tr").forEach(tr => {
-    const cols = Array.from(tr.children).map(td => td.textContent);
-    rows.push(cols);
+    const row = [];
+    tr.querySelectorAll("td").forEach(td => row.push(td.textContent));
+    rows.push(row);
   });
-  const csv = rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
+
+  const csv = rows.map(r => r.map(c => `"${c.replace(/"/g,'""')}"`).join(",")).join("\n");
   const blob = new Blob([csv], {type: "text/csv"});
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "website_scan_results.csv";
+  a.href = url;
+  a.download = "bulk_website_intelligence.csv";
   a.click();
-}
+  URL.revokeObjectURL(url);
+});
 </script>
 
 </body>
