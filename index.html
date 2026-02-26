@@ -2,418 +2,122 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Website Intelligence Scanner</title>
+<title>Website Bulk Analyzer</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-
-  :root {
-    --bg: #0f1117;
-    --surface: #1a1d27;
-    --surface-hover: #222633;
-    --border: #2a2e3b;
-    --text: #e4e6ed;
-    --text-muted: #8b8fa3;
-    --accent: #4f8ff7;
-    --green: #34d399;
-    --red: #f87171;
-    --yellow: #fbbf24;
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    font-family: 'DM Sans', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    padding: 2rem;
-  }
-
-  .container { max-width: 1500px; margin: 0 auto; }
-  header { margin-bottom: 2rem; }
-  header h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.25rem; }
-  header h1 span { color: var(--accent); }
-  header p { color: var(--text-muted); font-size: 0.9rem; }
-
-  .input-section {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;
-  }
-
-  .input-section label {
-    display: block; font-size: 0.8rem; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.05em;
-    color: var(--text-muted); margin-bottom: 0.5rem;
-  }
-
-  textarea {
-    width: 100%; height: 140px; background: var(--bg);
-    border: 1px solid var(--border); border-radius: 8px;
-    color: var(--text); font-family: 'JetBrains Mono', monospace;
-    font-size: 0.85rem; padding: 0.75rem; resize: vertical; outline: none;
-  }
-
-  textarea:focus { border-color: var(--accent); }
-
-  .domain-count { text-align: right; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.35rem; }
-  .domain-count.over { color: var(--red); font-weight: 600; }
-
-  .btn-row { display: flex; gap: 0.75rem; margin-top: 1rem; align-items: center; }
-
-  button {
-    font-family: 'DM Sans', sans-serif; font-weight: 600; font-size: 0.85rem;
-    padding: 0.6rem 1.25rem; border-radius: 8px; border: none; cursor: pointer;
-  }
-
-  .btn-primary { background: var(--accent); color: #fff; }
-  .btn-primary:hover { background: #3a7ae0; }
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-secondary { background: var(--surface-hover); color: var(--text); border: 1px solid var(--border); }
-  .btn-stop { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
-
-  #statusMsg { font-size: 0.85rem; color: var(--text-muted); margin-left: 0.5rem; }
-
-  .progress-wrap { height: 4px; background: var(--border); border-radius: 4px; margin-top: 0.75rem; display: none; }
-  .progress-wrap.show { display: block; }
-  .progress-bar { height: 100%; background: linear-gradient(90deg, var(--accent), #7c5cfc); border-radius: 4px; width: 0%; transition: width 0.3s; }
-
-  .table-wrap {
-    overflow-x: auto; background: var(--surface);
-    border: 1px solid var(--border); border-radius: 12px;
-  }
-
-  table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-
-  thead th {
-    background: var(--surface-hover); color: var(--text-muted);
-    font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.06em; padding: 0.75rem 0.6rem;
-    text-align: left; white-space: nowrap;
-    border-bottom: 1px solid var(--border);
-    position: sticky; top: 0; z-index: 1;
-  }
-
-  tbody td {
-    padding: 0.6rem; border-bottom: 1px solid var(--border);
-    white-space: nowrap; max-width: 220px;
-    overflow: hidden; text-overflow: ellipsis;
-  }
-
-  tbody tr:hover { background: var(--surface-hover); }
-
-  .active { color: var(--green); font-weight: 600; }
-  .inactive { color: var(--red); font-weight: 600; }
-  .warning { color: var(--yellow); font-weight: 600; }
-
-  .link { color: var(--accent); text-decoration: none; font-size: 0.75rem; }
-  .link:hover { text-decoration: underline; }
-
-  .empty { text-align: center; padding: 3rem 1rem; color: var(--text-muted); }
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  textarea { width: 100%; height: 100px; }
+  button { padding: 8px 16px; margin: 5px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+  th, td { border: 1px solid #ccc; padding: 6px; font-size: 12px; text-align: left; }
+  th { background-color: #f0f0f0; }
+  tr.inactive { background-color: #fee2e2; }
+  tr.active { background-color: #dcfce7; }
+  tr.redirected { background-color: #fef9c3; }
 </style>
 </head>
 <body>
 
-<div class="container">
-  <header>
-    <h1>Website <span>Intelligence</span> Scanner</h1>
-    <p>Scan up to 50 domains for status, business info, and social links</p>
-  </header>
+<h2>Website Bulk Analyzer</h2>
 
-  <div class="input-section">
-    <label>Enter domains (one per line, max 50)</label>
-    <textarea id="input" placeholder="google.com&#10;github.com&#10;example.com"></textarea>
-    <div class="domain-count" id="counter">0 / 50 domains</div>
-    <div class="progress-wrap" id="progressWrap"><div class="progress-bar" id="progressBar"></div></div>
-    <div class="btn-row">
-      <button class="btn-primary" id="btnScan">Scan Websites</button>
-      <button class="btn-secondary" id="btnExport">Export CSV</button>
-      <button class="btn-stop" id="btnStop" style="display:none">Stop</button>
-      <span id="statusMsg"></span>
-    </div>
-  </div>
+<p>Enter domains (comma-separated or one per line):</p>
+<textarea id="domainsInput" placeholder="example.com&#10;google.com"></textarea>
+<br>
+<button onclick="scanBulk()">Scan Websites</button>
+<button onclick="exportCSV()">Export CSV</button>
 
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>#</th><th>Domain</th><th>Status</th><th>Code</th><th>Reason</th>
-          <th>Business Name</th><th>Phone</th><th>Email</th>
-          <th>Street</th><th>City</th><th>State</th><th>Zip</th>
-          <th>Facebook</th><th>Instagram</th><th>LinkedIn</th><th>GMB</th>
-        </tr>
-      </thead>
-      <tbody id="tbody">
-        <tr><td colspan="16" class="empty">Enter domains and click Scan to begin</td></tr>
-      </tbody>
-    </table>
-  </div>
-</div>
+<div id="status" style="margin-top:10px;"></div>
+
+<table id="resultsTable" style="display:none;">
+  <thead>
+    <tr>
+      <th>Domain</th>
+      <th>Status</th>
+      <th>Reason</th>
+      <th>Business Name</th>
+      <th>Street</th>
+      <th>City</th>
+      <th>State</th>
+      <th>Zip</th>
+      <th>Phone</th>
+      <th>Email</th>
+      <th>Facebook</th>
+      <th>Instagram</th>
+      <th>LinkedIn</th>
+      <th>GMB</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
 
 <script>
-(function() {
+const backendURL = "https://website-intelligence-backend.onrender.com/bulk-analyze";
 
-  var API = "https://website-intelligence-backend-1.onrender.com";
-  var MAX = 50;
-  var CHUNK = 5;
-  var stopped = false;
+async function scanBulk() {
+  const input = document.getElementById("domainsInput").value.trim();
+  if (!input) return alert("Please enter at least one domain.");
 
-  var input = document.getElementById("input");
-  var tbody = document.getElementById("tbody");
-  var counter = document.getElementById("counter");
-  var statusMsg = document.getElementById("statusMsg");
-  var progressWrap = document.getElementById("progressWrap");
-  var progressBar = document.getElementById("progressBar");
-  var btnScan = document.getElementById("btnScan");
-  var btnExport = document.getElementById("btnExport");
-  var btnStop = document.getElementById("btnStop");
+  const domains = input.split(/[\n,]+/).map(d => d.trim()).filter(d => d);
+  document.getElementById("status").innerText = "Scanning...";
+  const tableBody = document.querySelector("#resultsTable tbody");
+  tableBody.innerHTML = "";
 
-  function esc(s) {
-    if (!s) return "";
-    var d = document.createElement("div");
-    d.appendChild(document.createTextNode(s));
-    return d.innerHTML;
-  }
+  try {
+    const response = await fetch(backendURL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ domains })
+    });
 
-  function getDomains() {
-    var lines = input.value.split("\n");
-    var out = [];
-    for (var i = 0; i < lines.length; i++) {
-      var d = lines[i].trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
-      if (d) out.push(d);
+    if (!response.ok) throw new Error("Failed to fetch from backend");
+
+    const results = await response.json();
+
+    for (const r of results) {
+      const tr = document.createElement("tr");
+      tr.className = r.status === "Active" ? "active" : r.reason.includes("Redirect") ? "redirected" : "inactive";
+
+      tr.innerHTML = `
+        <td>${r.domain}</td>
+        <td>${r.status}</td>
+        <td>${r.reason || ""}</td>
+        <td>${r.name || ""}</td>
+        <td>${r.street || ""}</td>
+        <td>${r.city || ""}</td>
+        <td>${r.state || ""}</td>
+        <td>${r.zip || ""}</td>
+        <td>${r.phone || ""}</td>
+        <td>${r.email || ""}</td>
+        <td>${r.social.facebook ? "✔" : ""}</td>
+        <td>${r.social.instagram ? "✔" : ""}</td>
+        <td>${r.social.linkedin ? "✔" : ""}</td>
+        <td>${r.social.gmb ? "✔" : ""}</td>
+      `;
+      tableBody.appendChild(tr);
     }
-    return out;
-  }
 
-  function setProgress(pct) {
-    progressBar.style.width = pct + "%";
+    document.getElementById("resultsTable").style.display = "table";
+    document.getElementById("status").innerText = `Scan complete: ${results.length} domains`;
+  } catch (err) {
+    console.error(err);
+    document.getElementById("status").innerText = "Error fetching data. Check backend URL.";
   }
+}
 
-  function statusHtml(status, code) {
-    // Simple logic: if server says Active OR code is 200-399, show Active
-    if (status === "Active" || (code >= 200 && code < 400)) {
-      return '<span class="active">Active</span>';
-    }
-    return '<span class="inactive">Inactive</span>';
-  }
-
-  function socialCell(url) {
-    if (!url) return "\u2014";
-    try {
-      var u = new URL(url);
-      var label = u.hostname.replace("www.", "") + u.pathname;
-      if (label.length > 30) label = label.substring(0, 30) + "...";
-      return '<a class="link" href="' + esc(url) + '" target="_blank">' + esc(label) + '</a>';
-    } catch(e) {
-      return '<a class="link" href="' + esc(url) + '" target="_blank">Link</a>';
-    }
-  }
-
-  function addRow(d, num) {
-    var s = d.social || {};
-    var emailHtml = d.email ? '<a class="link" href="mailto:' + esc(d.email) + '">' + esc(d.email) + '</a>' : "\u2014";
-    var tr = document.createElement("tr");
-    tr.innerHTML =
-      "<td>" + num + "</td>" +
-      "<td><strong>" + esc(d.domain) + "</strong></td>" +
-      "<td>" + statusHtml(d.status, d.statusCode) + "</td>" +
-      "<td>" + (d.statusCode || "\u2014") + "</td>" +
-      "<td>" + (esc(d.reason) || "\u2014") + "</td>" +
-      "<td>" + (esc(d.name) || "\u2014") + "</td>" +
-      "<td>" + (esc(d.phone) || "\u2014") + "</td>" +
-      "<td>" + emailHtml + "</td>" +
-      "<td>" + (esc(d.street) || "\u2014") + "</td>" +
-      "<td>" + (esc(d.city) || "\u2014") + "</td>" +
-      "<td>" + (esc(d.state) || "\u2014") + "</td>" +
-      "<td>" + (esc(d.zip) || "\u2014") + "</td>" +
-      "<td>" + socialCell(s.facebook) + "</td>" +
-      "<td>" + socialCell(s.instagram) + "</td>" +
-      "<td>" + socialCell(s.linkedin) + "</td>" +
-      "<td>" + socialCell(s.gmb) + "</td>";
-    tbody.appendChild(tr);
-  }
-
-  function errorRow(domain, reason, num) {
-    addRow({
-      domain: domain, status: "Inactive", statusCode: 0, reason: reason,
-      name: "", phone: "", email: "", street: "", city: "", state: "", zip: "",
-      social: { facebook: "", instagram: "", linkedin: "", gmb: "" }
-    }, num);
-  }
-
-  input.addEventListener("input", function() {
-    var n = getDomains().length;
-    counter.textContent = n + " / " + MAX + " domains";
-    counter.className = n > MAX ? "domain-count over" : "domain-count";
+function exportCSV() {
+  const rows = [["Domain","Status","Reason","Business Name","Street","City","State","Zip","Phone","Email","Facebook","Instagram","LinkedIn","GMB"]];
+  document.querySelectorAll("#resultsTable tbody tr").forEach(tr => {
+    const row = Array.from(tr.children).map(td => `"${td.innerText.replace(/"/g,'""')}"`);
+    rows.push(row);
   });
-
-  btnStop.addEventListener("click", function() {
-    stopped = true;
-    btnStop.style.display = "none";
-    btnScan.disabled = false;
-    statusMsg.textContent = "Stopped";
-    statusMsg.style.color = "var(--red)";
-  });
-
-  btnExport.addEventListener("click", function() {
-    var rows = document.querySelectorAll("table tr");
-    if (rows.length <= 1) { alert("No data"); return; }
-    var csv = [];
-    for (var i = 0; i < rows.length; i++) {
-      var cells = rows[i].cells;
-      var line = [];
-      for (var j = 0; j < cells.length; j++) {
-        line.push('"' + cells[j].innerText.replace(/"/g, '""') + '"');
-      }
-      csv.push(line.join(","));
-    }
-    var blob = new Blob(["\uFEFF" + csv.join("\n")], { type: "text/csv;charset=utf-8;" });
-    var a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "scan-" + new Date().toISOString().slice(0, 10) + ".csv";
-    a.click();
-  });
-
-  btnScan.addEventListener("click", function() {
-    var domains = getDomains();
-    if (domains.length === 0) { alert("Enter at least one domain"); return; }
-    if (domains.length > MAX) { alert("Max " + MAX + " domains."); return; }
-
-    tbody.innerHTML = "";
-    stopped = false;
-    btnScan.disabled = true;
-    btnStop.style.display = "inline-block";
-    progressWrap.className = "progress-wrap show";
-    setProgress(5);
-    statusMsg.textContent = "Waking up server...";
-    statusMsg.style.color = "var(--text-muted)";
-
-    var chunks = [];
-    for (var i = 0; i < domains.length; i += CHUNK) {
-      chunks.push(domains.slice(i, i + CHUNK));
-    }
-
-    var chunkIndex = 0;
-    var rowNum = 0;
-    var totalActive = 0;
-
-    function finish() {
-      setProgress(100);
-      btnScan.disabled = false;
-      btnStop.style.display = "none";
-      if (!stopped) {
-        statusMsg.textContent = "Done! " + totalActive + "/" + domains.length + " active";
-        statusMsg.style.color = "var(--green)";
-      }
-      setTimeout(function() {
-        progressWrap.className = "progress-wrap";
-        setProgress(0);
-      }, 2000);
-    }
-
-    function processNextChunk() {
-      if (stopped || chunkIndex >= chunks.length) {
-        finish();
-        return;
-      }
-
-      var chunk = chunks[chunkIndex];
-      var done = chunkIndex * CHUNK;
-      statusMsg.textContent = "Scanning " + (done + 1) + "-" + Math.min(done + chunk.length, domains.length) + " of " + domains.length + "...";
-
-      var xhr = new XMLHttpRequest();
-      xhr.open("POST", API + "/bulk-analyze");
-      xhr.setRequestHeader("Content-Type", "application/json");
-      xhr.timeout = 60000;
-
-      xhr.onload = function() {
-        console.log("Chunk " + (chunkIndex + 1) + " [" + xhr.status + "]: " + xhr.responseText.substring(0, 300));
-
-        if (xhr.status >= 200 && xhr.status < 300 && xhr.responseText) {
-          try {
-            var data = JSON.parse(xhr.responseText);
-            if (Array.isArray(data)) {
-              for (var k = 0; k < data.length; k++) {
-                rowNum++;
-                addRow(data[k], rowNum);
-                if (data[k].status === "Active" || (data[k].statusCode >= 200 && data[k].statusCode < 400)) {
-                  totalActive++;
-                }
-              }
-            }
-          } catch(e) {
-            console.error("Parse error:", e);
-            for (var m = 0; m < chunk.length; m++) {
-              rowNum++;
-              errorRow(chunk[m], "Parse error", rowNum);
-            }
-          }
-        } else {
-          for (var n = 0; n < chunk.length; n++) {
-            rowNum++;
-            errorRow(chunk[n], "Server error " + xhr.status, rowNum);
-          }
-        }
-
-        chunkIndex++;
-        setProgress(10 + ((chunkIndex / chunks.length) * 85));
-        processNextChunk();
-      };
-
-      xhr.onerror = function() {
-        console.error("Network error chunk " + (chunkIndex + 1));
-        for (var p = 0; p < chunk.length; p++) {
-          rowNum++;
-          errorRow(chunk[p], "Network error", rowNum);
-        }
-        chunkIndex++;
-        processNextChunk();
-      };
-
-      xhr.ontimeout = function() {
-        for (var q = 0; q < chunk.length; q++) {
-          rowNum++;
-          errorRow(chunk[q], "Timeout", rowNum);
-        }
-        chunkIndex++;
-        processNextChunk();
-      };
-
-      xhr.send(JSON.stringify({ domains: chunk }));
-    }
-
-    // Health check first
-    var health = new XMLHttpRequest();
-    health.open("GET", API + "/");
-    health.timeout = 90000;
-
-    health.onload = function() {
-      console.log("Health: " + health.status);
-      setProgress(10);
-      statusMsg.textContent = "Server up! Scanning...";
-      processNextChunk();
-    };
-
-    health.onerror = function() {
-      statusMsg.textContent = "Cannot reach server. Wait 60s and retry.";
-      statusMsg.style.color = "var(--red)";
-      btnScan.disabled = false;
-      btnStop.style.display = "none";
-      progressWrap.className = "progress-wrap";
-    };
-
-    health.ontimeout = function() {
-      statusMsg.textContent = "Server timeout. Try again.";
-      statusMsg.style.color = "var(--red)";
-      btnScan.disabled = false;
-      btnStop.style.display = "none";
-      progressWrap.className = "progress-wrap";
-    };
-
-    health.send();
-  });
-
-})();
+  const csv = rows.map(r => r.join(",")).join("\n");
+  const blob = new Blob([csv], {type: "text/csv"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "website_analysis.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
 </script>
 
 </body>
