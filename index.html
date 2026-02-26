@@ -76,22 +76,22 @@ async function scanBulk() {
       const tr = document.createElement("tr");
       tr.className = r.status === "Active" ? "active" : r.reason.includes("Redirect") ? "redirected" : "inactive";
 
-      tr.innerHTML = `
-        <td>${r.domain}</td>
-        <td>${r.status}</td>
-        <td>${r.reason || ""}</td>
-        <td>${r.name || ""}</td>
-        <td>${r.street || ""}</td>
-        <td>${r.city || ""}</td>
-        <td>${r.state || ""}</td>
-        <td>${r.zip || ""}</td>
-        <td>${r.phone || ""}</td>
-        <td>${r.email || ""}</td>
-        <td>${r.social.facebook ? "✔" : ""}</td>
-        <td>${r.social.instagram ? "✔" : ""}</td>
-        <td>${r.social.linkedin ? "✔" : ""}</td>
-        <td>${r.social.gmb ? "✔" : ""}</td>
-      `;
+     tr.innerHTML = `
+  <td>${r.domain}</td>
+  <td>${r.status}</td>
+  <td>${r.reason || ""}</td>
+  <td>${r.name || ""}</td>
+  <td>${r.street || ""}</td>
+  <td>${r.city || ""}</td>
+  <td>${r.state || ""}</td>
+  <td>${r.zip || ""}</td>
+  <td>${r.phone || ""}</td>
+  <td>${r.email || ""}</td>
+  <td>${r.social.facebook ? `<a href="${r.social.facebook}" target="_blank">Facebook</a>` : ""}</td>
+  <td>${r.social.instagram ? `<a href="${r.social.instagram}" target="_blank">Instagram</a>` : ""}</td>
+  <td>${r.social.linkedin ? `<a href="${r.social.linkedin}" target="_blank">LinkedIn</a>` : ""}</td>
+  <td>${r.social.gmb ? `<a href="${r.social.gmb}" target="_blank">GMB</a>` : ""}</td>
+`;
       tableBody.appendChild(tr);
     }
 
