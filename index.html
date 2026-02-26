@@ -41,7 +41,7 @@ async function scanBulk() {
   resultsDiv.innerHTML = "Scanning... Please wait...";
 
   try {
-    const response = await fetch("https://website-intelligence-backend-2.onrender.com/bulk-analyze", {
+    const response = await fetch("https://your-backend-live-url.onrender.com/bulk-analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ domains })
