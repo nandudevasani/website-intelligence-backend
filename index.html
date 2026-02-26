@@ -36,40 +36,63 @@
 <script>
 async function scanBulk() {
   const input = document.getElementById("domains").value;
-  const domains = input.split("\n").map(d => d.trim()).filter(d => d);
 
-  if(domains.length === 0){
-    alert("Please enter at least one domain.");
+  if (!input.trim()) {
+    alert("Please enter domains.");
     return;
   }
 
-  const table = document.getElementById("resultsTable");
-  const tbody = table.querySelector("tbody");
-  tbody.innerHTML = "";
+  const domains = input
+    .split("\n")
+    .map(d => d.trim())
+    .filter(d => d);
 
-  const response = await fetch("https://website-intelligence-backend-2.onrender.com/bulk-analyze", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ domains })
-  });
+  const resultsDiv = document.getElementById("results");
+  resultsDiv.innerHTML = "Scanning... Please wait...";
 
-  const data = await response.json();
+  try {
+    const response = await fetch(
+      "https://website-intelligence-backend-2.onrender.com/bulk-analyze",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ domains })
+      }
+    );
 
-  data.forEach(item => {
-    const row = `
-      <tr>
-        <td>${item.domain}</td>
-        <td>${item.status}</td>
-        <td>${item.statusCode || "-"}</td>
-        <td>${item.reason || "-"}</td>
-      </tr>
-    `;
-    tbody.innerHTML += row;
-  });
+    if (!response.ok) {
+      resultsDiv.innerHTML = "Server error: " + response.status;
+      return;
+    }
 
-  table.style.display = "table";
+    const text = await response.text();
+
+    if (!text) {
+      resultsDiv.innerHTML = "Empty response from server.";
+      return;
+    }
+
+    const data = JSON.parse(text);
+
+    let html = "<h3>Results:</h3><ul>";
+
+    data.forEach(item => {
+      html += `
+        <li>
+          <strong>${item.domain}</strong> -
+          ${item.status}
+          ${item.reason ? " (" + item.reason + ")" : ""}
+        </li>
+      `;
+    });
+
+    html += "</ul>";
+
+    resultsDiv.innerHTML = html;
+
+  } catch (error) {
+    resultsDiv.innerHTML = "Error: " + error.message;
+  }
 }
-</script>
-
-</body>
-</html>
