@@ -7,11 +7,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Extract business info & social links
 function extractInfo(html) {
   const dom = new JSDOM(html);
   const doc = dom.window.document;
 
-  // Business info placeholders
   const name = doc.querySelector("meta[property='og:site_name']")?.content || "";
   const street = doc.querySelector("[itemprop='streetAddress']")?.textContent || "";
   const city = doc.querySelector("[itemprop='addressLocality']")?.textContent || "";
@@ -20,7 +20,6 @@ function extractInfo(html) {
   const phone = doc.querySelector("[itemprop='telephone']")?.textContent || "";
   const email = doc.querySelector("a[href^='mailto:']")?.textContent || "";
 
-  // Social links
   const links = Array.from(doc.querySelectorAll("a[href]")).map(a => a.href);
   const social = {
     facebook: links.find(l => l.includes("facebook.com")) || "",
@@ -32,6 +31,7 @@ function extractInfo(html) {
   return { name, street, city, state, zip, phone, email, social };
 }
 
+// Bulk analyze endpoint
 app.post("/bulk-analyze", async (req, res) => {
   const { domains } = req.body;
   if (!domains || !Array.isArray(domains)) {
@@ -45,9 +45,7 @@ app.post("/bulk-analyze", async (req, res) => {
       const response = await axios.get(`https://${domain}`, {
         timeout: 8000,
         validateStatus: () => true,
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-        }
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
       });
 
       let status = "Active";
@@ -59,7 +57,6 @@ app.post("/bulk-analyze", async (req, res) => {
       }
 
       const html = response.data.toLowerCase();
-
       if (html.includes("coming soon") || html.includes("under construction")) {
         reason = "Coming Soon";
       }
@@ -73,7 +70,8 @@ app.post("/bulk-analyze", async (req, res) => {
         reason,
         ...info
       });
-    } catch (err) {
+
+    } catch {
       results.push({
         domain,
         status: "Inactive",
@@ -95,6 +93,4 @@ app.post("/bulk-analyze", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
-});
+app.listen(PORT, () => console.log("Server running on port " + PORT));
