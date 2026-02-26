@@ -2,30 +2,20 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Website Bulk Analyzer</title>
+<title>Website Intelligence Tool</title>
 <style>
-  body { font-family: Arial, sans-serif; margin: 20px; }
-  textarea { width: 100%; height: 100px; }
-  button { padding: 8px 16px; margin: 5px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-  th, td { border: 1px solid #ccc; padding: 6px; font-size: 12px; text-align: left; }
-  th { background-color: #f0f0f0; }
-  tr.inactive { background-color: #fee2e2; }
-  tr.active { background-color: #dcfce7; }
-  tr.redirected { background-color: #fef9c3; }
+body { font-family: sans-serif; margin:20px; }
+input, button { padding: 6px 12px; margin: 4px; }
+table { border-collapse: collapse; width: 100%; margin-top: 16px; }
+th, td { border: 1px solid #aaa; padding: 6px; text-align: left; font-size: 13px; }
+th { background: #f0f0f0; }
+a { color: #2563eb; text-decoration: none; }
 </style>
 </head>
 <body>
-
-<h2>Website Bulk Analyzer</h2>
-
-<p>Enter domains (comma-separated or one per line):</p>
-<textarea id="domainsInput" placeholder="example.com&#10;google.com"></textarea>
-<br>
+<h2>Website Intelligence Tool</h2>
+<textarea id="domains" placeholder="Enter domains, one per line" rows="6" cols="60"></textarea><br>
 <button onclick="scanBulk()">Scan Websites</button>
-<button onclick="exportCSV()">Export CSV</button>
-
-<div id="status" style="margin-top:10px;"></div>
 
 <table id="resultsTable" style="display:none;">
   <thead>
@@ -50,75 +40,48 @@
 </table>
 
 <script>
-const backendURL = "https://website-intelligence-backend.onrender.com/bulk-analyze";
-
 async function scanBulk() {
-  const input = document.getElementById("domainsInput").value.trim();
-  if (!input) return alert("Please enter at least one domain.");
+  const text = document.getElementById("domains").value;
+  const domains = text.split("\n").map(d=>d.trim()).filter(Boolean);
+  if(domains.length === 0) { alert("Enter domains!"); return; }
 
-  const domains = input.split(/[\n,]+/).map(d => d.trim()).filter(d => d);
-  document.getElementById("status").innerText = "Scanning...";
-  const tableBody = document.querySelector("#resultsTable tbody");
-  tableBody.innerHTML = "";
+  const table = document.getElementById("resultsTable");
+  const tbody = table.querySelector("tbody");
+  tbody.innerHTML = "";
+  table.style.display = "table";
 
   try {
-    const response = await fetch(backendURL, {
+    const res = await fetch("https://YOUR_BACKEND_URL/bulk-analyze", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type":"application/json" },
       body: JSON.stringify({ domains })
     });
+    const data = await res.json();
 
-    if (!response.ok) throw new Error("Failed to fetch from backend");
-
-    const results = await response.json();
-
-    for (const r of results) {
+    data.forEach(r => {
       const tr = document.createElement("tr");
-      tr.className = r.status === "Active" ? "active" : r.reason.includes("Redirect") ? "redirected" : "inactive";
-
-     tr.innerHTML = `
-  <td>${r.domain}</td>
-  <td>${r.status}</td>
-  <td>${r.reason || ""}</td>
-  <td>${r.name || ""}</td>
-  <td>${r.street || ""}</td>
-  <td>${r.city || ""}</td>
-  <td>${r.state || ""}</td>
-  <td>${r.zip || ""}</td>
-  <td>${r.phone || ""}</td>
-  <td>${r.email || ""}</td>
-  <td>${r.social.facebook ? `<a href="${r.social.facebook}" target="_blank">Facebook</a>` : ""}</td>
-  <td>${r.social.instagram ? `<a href="${r.social.instagram}" target="_blank">Instagram</a>` : ""}</td>
-  <td>${r.social.linkedin ? `<a href="${r.social.linkedin}" target="_blank">LinkedIn</a>` : ""}</td>
-  <td>${r.social.gmb ? `<a href="${r.social.gmb}" target="_blank">GMB</a>` : ""}</td>
-`;
-      tableBody.appendChild(tr);
-    }
-
-    document.getElementById("resultsTable").style.display = "table";
-    document.getElementById("status").innerText = `Scan complete: ${results.length} domains`;
-  } catch (err) {
-    console.error(err);
-    document.getElementById("status").innerText = "Error fetching data. Check backend URL.";
+      tr.innerHTML = `
+        <td>${r.domain}</td>
+        <td>${r.status}</td>
+        <td>${r.reason || ""}</td>
+        <td>${r.name || ""}</td>
+        <td>${r.street || ""}</td>
+        <td>${r.city || ""}</td>
+        <td>${r.state || ""}</td>
+        <td>${r.zip || ""}</td>
+        <td>${r.phone || ""}</td>
+        <td>${r.email || ""}</td>
+        <td>${r.social.facebook ? `<a href="${r.social.facebook}" target="_blank">Facebook</a>` : ""}</td>
+        <td>${r.social.instagram ? `<a href="${r.social.instagram}" target="_blank">Instagram</a>` : ""}</td>
+        <td>${r.social.linkedin ? `<a href="${r.social.linkedin}" target="_blank">LinkedIn</a>` : ""}</td>
+        <td>${r.social.gmb ? `<a href="${r.social.gmb}" target="_blank">GMB</a>` : ""}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch(e) {
+    alert("Error fetching data");
   }
 }
-
-function exportCSV() {
-  const rows = [["Domain","Status","Reason","Business Name","Street","City","State","Zip","Phone","Email","Facebook","Instagram","LinkedIn","GMB"]];
-  document.querySelectorAll("#resultsTable tbody tr").forEach(tr => {
-    const row = Array.from(tr.children).map(td => `"${td.innerText.replace(/"/g,'""')}"`);
-    rows.push(row);
-  });
-  const csv = rows.map(r => r.join(",")).join("\n");
-  const blob = new Blob([csv], {type: "text/csv"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "website_analysis.csv";
-  a.click();
-  URL.revokeObjectURL(url);
-}
 </script>
-
 </body>
 </html>
