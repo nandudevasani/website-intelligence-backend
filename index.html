@@ -57,7 +57,6 @@ async function scanBulk() {
       <th>Domain</th><th>Status</th><th>Reason</th>
       <th>Phone</th><th>Email</th>
       <th>Facebook</th><th>Instagram</th><th>LinkedIn</th>
-      <th>Domain Age</th>
     </tr>`;
 
     data.forEach(item => {
@@ -71,7 +70,6 @@ async function scanBulk() {
         <td>${item.social.facebook ? "✔" : ""}</td>
         <td>${item.social.instagram ? "✔" : ""}</td>
         <td>${item.social.linkedin ? "✔" : ""}</td>
-        <td>${item.domainAge || ""}</td>
       </tr>`;
     });
 
@@ -86,7 +84,7 @@ async function scanBulk() {
 function exportCSV() {
   if (!latestResults.length) { alert("No results to export."); return; }
 
-  const header = "Domain,Status,Reason,Phone,Email,Facebook,Instagram,LinkedIn,Domain Age";
+  const header = "Domain,Status,Reason,Phone,Email,Facebook,Instagram,LinkedIn";
   const rows = latestResults.map(r => [
     r.domain,
     r.status,
@@ -95,8 +93,7 @@ function exportCSV() {
     r.email || "",
     r.social.facebook ? "Yes" : "",
     r.social.instagram ? "Yes" : "",
-    r.social.linkedin ? "Yes" : "",
-    r.domainAge || ""
+    r.social.linkedin ? "Yes" : ""
   ].join(","));
 
   const csv = [header, ...rows].join("\n");
