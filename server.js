@@ -62,7 +62,7 @@ async function scanDomain(domain) {
   try {
     const url = `https://${domain}`;
     const response = await axios.get(url, {
-      timeout: 10000,
+      timeout: 6000,
       maxRedirects: 5,
       validateStatus: () => true,
       headers: {
@@ -130,8 +130,8 @@ app.post("/batch-scan", async (req, res) => {
     return res.status(400).json({ error: "Domains array required" });
   }
 
-  const batch = domains.slice(0, 10);
-  const results = await parallelScan(batch, 5);
+  const batch = domains.slice(0, 5);
+  const results = await parallelScan(batch, 3);
   res.json(results);
 });
 
