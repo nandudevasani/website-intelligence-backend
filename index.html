@@ -335,7 +335,7 @@
 <script>
   // ====== CONFIGURATION ======
   const API_URL = "https://website-intelligence-backend-1.onrender.com";
-  const BATCH_SIZE = 10; // Domains per batch request
+  const BATCH_SIZE = 5; // Domains per batch — keep small to avoid Render 30s timeout
   const MAX_DOMAINS = 50;
 
   let scanning = false;
@@ -468,12 +468,23 @@
             signal: abortController.signal
           });
 
+          // Safe response parsing — handle empty/truncated responses
+          const text = await res.text();
+
           if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(`Server error ${res.status}: ${errText}`);
+            throw new Error(`Server error ${res.status}: ${text.slice(0, 200)}`);
           }
 
-          const data = await res.json();
+          let data;
+          try {
+            data = JSON.parse(text);
+          } catch (parseErr) {
+            throw new Error("Server returned incomplete response (Render timeout). Try fewer domains.");
+          }
+
+          if (!Array.isArray(data)) {
+            throw new Error("Unexpected response format");
+          }
 
           // Add results to table progressively
           data.forEach(d => {
@@ -489,18 +500,42 @@
         } catch (err) {
           if (err.name === "AbortError") break;
 
-          // If a batch fails, mark all domains in it as errors
-          batch.forEach(domain => {
-            rowIndex++;
-            addRowToTable({
-              domain,
-              status: "Inactive",
-              statusCode: 0,
-              reason: `Batch error: ${err.message}`,
-              name: "", phone: "", email: "", street: "", city: "", state: "", zip: "",
-              social: { facebook: "", instagram: "", linkedin: "", gmb: "" }
-            }, rowIndex);
-          });
+          // If a batch fails, scan domains one-by-one as fallback
+          console.warn(`Batch ${i+1} failed: ${err.message}. Trying one-by-one...`);
+          setStatus(`⚠️ Batch ${i+1} failed, retrying individually...`, "error");
+
+          for (const domain of batch) {
+            if (!scanning) break;
+            try {
+              const res2 = await fetch(API_URL + "/batch-scan", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ domains: [domain] }),
+                signal: abortController.signal
+              });
+              const text2 = await res2.text();
+              let data2;
+              try { data2 = JSON.parse(text2); } catch { data2 = null; }
+
+              if (Array.isArray(data2) && data2.length > 0) {
+                rowIndex++;
+                addRowToTable(data2[0], rowIndex);
+                if (data2[0].status === "Active") totalActive++;
+              } else {
+                throw new Error("Empty response");
+              }
+            } catch {
+              rowIndex++;
+              addRowToTable({
+                domain,
+                status: "Inactive",
+                statusCode: 0,
+                reason: "Server timeout — try again later",
+                name: "", phone: "", email: "", street: "", city: "", state: "", zip: "",
+                social: { facebook: "", instagram: "", linkedin: "", gmb: "" }
+              }, rowIndex);
+            }
+          }
           completed += batch.length;
         }
       }
