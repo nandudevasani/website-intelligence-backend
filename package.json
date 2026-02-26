@@ -1,13 +1,22 @@
 {
   "name": "website-intelligence-backend",
   "version": "1.0.0",
+  "description": "Bulk website intelligence scanner with business info and social links",
   "type": "module",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
+    "axios": "^1.6.2",
+    "cors": "^2.8.5",
     "express": "^4.18.2",
-    "axios": "^1.5.0",
-    "cors": "^2.8.5"
-  }
+    "jsdom": "^22.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["website", "scanner", "business info", "social links"],
+  "author": "YourName",
+  "license": "MIT"
 }
