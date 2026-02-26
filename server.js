@@ -1,69 +1,115 @@
-import express from "express";
-import cors from "cors";
-import axios from "axios";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Website Bulk Analyzer</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  textarea { width: 100%; height: 100px; }
+  button { padding: 8px 16px; margin: 5px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+  th, td { border: 1px solid #ccc; padding: 6px; font-size: 12px; text-align: left; }
+  th { background-color: #f0f0f0; }
+  tr.inactive { background-color: #fee2e2; }
+  tr.active { background-color: #dcfce7; }
+  tr.redirected { background-color: #fef9c3; }
+  a { color: #2563eb; text-decoration: underline; }
+</style>
+</head>
+<body>
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+<h2>Website Bulk Analyzer</h2>
 
-function extractSocialLinks(html) {
-  const facebook = (html.match(/https?:\/\/(www\.)?facebook\.com\/[^\s"'<>]+/gi) || [])[0] || "";
-  const instagram = (html.match(/https?:\/\/(www\.)?instagram\.com\/[^\s"'<>]+/gi) || [])[0] || "";
-  const linkedin = (html.match(/https?:\/\/(www\.)?linkedin\.com\/[^\s"'<>]+/gi) || [])[0] || "";
-  const gmb = (html.match(/https?:\/\/(g\.page|www\.google\.com\/maps\/place)\/[^\s"'<>]+/gi) || [])[0] || "";
-  return { facebook, instagram, linkedin, gmb };
+<p>Enter domains (comma-separated or one per line):</p>
+<textarea id="domainsInput" placeholder="example.com&#10;google.com"></textarea>
+<br>
+<button onclick="scanBulk()">Scan Websites</button>
+<button onclick="exportCSV()">Export CSV</button>
+
+<div id="status" style="margin-top:10px;"></div>
+
+<table id="resultsTable" style="display:none;">
+  <thead>
+    <tr>
+      <th>Domain</th>
+      <th>Status</th>
+      <th>Reason</th>
+      <th>Phone</th>
+      <th>Email</th>
+      <th>Facebook</th>
+      <th>Instagram</th>
+      <th>LinkedIn</th>
+      <th>GMB</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script>
+const backendURL = "https://website-intelligence-backend.onrender.com/bulk-analyze";
+
+async function scanBulk() {
+  const input = document.getElementById("domainsInput").value.trim();
+  if (!input) return alert("Please enter at least one domain.");
+
+  const domains = input.split(/[\n,]+/).map(d => d.trim()).filter(d => d);
+  document.getElementById("status").innerText = "Scanning...";
+  const tableBody = document.querySelector("#resultsTable tbody");
+  tableBody.innerHTML = "";
+
+  try {
+    const response = await fetch(backendURL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ domains })
+    });
+
+    if (!response.ok) throw new Error("Failed to fetch from backend");
+
+    const results = await response.json();
+
+    for (const r of results) {
+      const tr = document.createElement("tr");
+      tr.className = r.status === "Active" ? "active" : r.reason.includes("Redirect") ? "redirected" : "inactive";
+
+      tr.innerHTML = `
+        <td>${r.domain}</td>
+        <td>${r.status}</td>
+        <td>${r.reason || ""}</td>
+        <td>${r.phone || ""}</td>
+        <td>${r.email || ""}</td>
+        <td>${r.social.facebook ? `<a href="${r.social.facebook}" target="_blank">Facebook</a>` : ""}</td>
+        <td>${r.social.instagram ? `<a href="${r.social.instagram}" target="_blank">Instagram</a>` : ""}</td>
+        <td>${r.social.linkedin ? `<a href="${r.social.linkedin}" target="_blank">LinkedIn</a>` : ""}</td>
+        <td>${r.social.gmb ? `<a href="${r.social.gmb}" target="_blank">GMB</a>` : ""}</td>
+      `;
+      tableBody.appendChild(tr);
+    }
+
+    document.getElementById("resultsTable").style.display = "table";
+    document.getElementById("status").innerText = `Scan complete: ${results.length} domains`;
+  } catch (err) {
+    console.error(err);
+    document.getElementById("status").innerText = "Error fetching data. Check backend URL.";
+  }
 }
 
-app.post("/bulk-analyze", async (req, res) => {
-  const { domains } = req.body;
-  if (!domains || !Array.isArray(domains))
-    return res.status(400).json({ error: "Domains array required" });
+function exportCSV() {
+  const rows = [["Domain","Status","Reason","Phone","Email","Facebook","Instagram","LinkedIn","GMB"]];
+  document.querySelectorAll("#resultsTable tbody tr").forEach(tr => {
+    const row = Array.from(tr.children).map(td => `"${td.innerText.replace(/"/g,'""')}"`);
+    rows.push(row);
+  });
+  const csv = rows.map(r => r.join(",")).join("\n");
+  const blob = new Blob([csv], {type: "text/csv"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "website_analysis.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
 
-  const results = [];
-
-  for (let domain of domains) {
-    try {
-      const response = await axios.get(`https://${domain}`, {
-        timeout: 10000,
-        validateStatus: () => true,
-        headers: { "User-Agent": "Mozilla/5.0" }
-      });
-
-      let status = response.status >= 200 && response.status < 400 ? "Active" : "Inactive";
-      let reason = "";
-      const html = response.data.toLowerCase();
-
-      if (status === "Inactive") reason = "Server or DNS error";
-      if (html.includes("coming soon") || html.includes("under construction")) reason = "Coming Soon";
-      if (html.includes("redirect") || response.request.res.responseUrl !== `https://${domain}/`) reason = "Redirected";
-
-      const social = extractSocialLinks(response.data);
-
-      results.push({
-        domain,
-        status,
-        statusCode: response.status,
-        reason,
-        phone: "", // optional: you can add regex to detect phone
-        email: "", // optional: detect email regex
-        social
-      });
-
-    } catch (error) {
-      results.push({
-        domain,
-        status: "Inactive",
-        statusCode: 0,
-        reason: "Unreachable / DNS Error or Blocked",
-        phone: "",
-        email: "",
-        social: { facebook: "", instagram: "", linkedin: "", gmb: "" }
-      });
-    }
-  }
-
-  res.json(results);
-});
-
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log("Server running on port " + PORT));
+</body>
+</html>
